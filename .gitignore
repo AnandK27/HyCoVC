@@ -22,6 +22,8 @@ hific_dev/
 *.slurm
 *.tex
 checkpoints/
+*.txt
+*.sh
 
 # C extensions
 *.so

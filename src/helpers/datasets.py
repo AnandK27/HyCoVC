@@ -20,7 +20,7 @@ NUM_DATASET_WORKERS = 4
 SCALE_MIN = 0.75
 SCALE_MAX = 0.95
 DATASETS_DICT = {"openimages": "OpenImages", "cityscapes": "CityScapes", 
-                 "jetimages": "JetImages", "evaluation": "Evaluation"}
+                 "jetimages": "JetImages", "evaluation": "Evaluation", "flicker" : "Flicker"}
 DATASETS = list(DATASETS_DICT.keys())
 
 def get_dataset(dataset):
@@ -268,6 +268,94 @@ class OpenImages(BaseDataset):
         # apply random scaling + crop, put each pixel 
         # in [0.,1.] and reshape to (C x H x W)
         return transformed, bpp
+
+class Flicker(BaseDataset):
+    """Flicker dataset
+
+    Parameters
+    ----------
+    root : string
+        Root directory of dataset.
+
+    """
+    files = {"train": "train", "test": "test", "val": "validation"}
+
+    def __init__(self, root=os.path.abspath('/data/videocoding/dnnvc/datasets/flicker_2W/tmp/flicker_2W_256x256_train_data/'), mode='train', crop_size=256, 
+        normalize=False, **kwargs):
+        super().__init__(root, [transforms.ToTensor()], **kwargs)
+
+        if mode == 'train':
+            data_dir = self.root
+        elif mode == 'validation':
+            data_dir = self.root
+        else:
+            raise ValueError('Unknown mode!')
+
+        self.imgs = glob.glob(os.path.join(data_dir, '*.jpg'))
+        self.imgs += glob.glob(os.path.join(data_dir, '*.png'))
+
+        self.crop_size = crop_size
+        self.image_dims = (3, self.crop_size, self.crop_size)
+        self.scale_min = SCALE_MIN
+        self.scale_max = SCALE_MAX
+        self.normalize = normalize
+
+    def _transforms(self, scale, H, W):
+        """
+        Up(down)scale and randomly crop to `crop_size` x `crop_size`
+        """
+        transforms_list = [# transforms.ToPILImage(),
+                           transforms.RandomHorizontalFlip(),
+                           transforms.Resize((math.ceil(scale * H), math.ceil(scale * W))),
+                           transforms.RandomCrop(self.crop_size),
+                           transforms.ToTensor()]
+
+        if self.normalize is True:
+            transforms_list += [transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))]
+
+        return transforms.Compose(transforms_list)
+
+    def __getitem__(self, idx):
+        """ TODO: This definitely needs to be optimized.
+        Get the image of `idx`
+
+        Return
+        ------
+        sample : torch.Tensor
+            Tensor in [0.,1.] of shape `img_size`.
+
+        """
+        # img values already between 0 and 255
+        img_path = self.imgs[idx]
+        filesize = os.path.getsize(img_path)
+        try:
+            # This is faster but less convenient
+            # H X W X C `ndarray`
+            # img = imread(img_path)
+            # img_dims = img.shape
+            # H, W = img_dims[0], img_dims[1]
+            # PIL
+            img = PIL.Image.open(img_path)
+            img = img.convert('RGB') 
+            W, H = img.size  # slightly confusing
+            bpp = filesize * 8. / (H * W)
+
+            shortest_side_length = min(H,W)
+
+            minimum_scale_factor = float(self.crop_size) / float(shortest_side_length)
+            scale_low = max(minimum_scale_factor, self.scale_min)
+            scale_high = max(scale_low, self.scale_max)
+            scale = np.random.uniform(scale_low, scale_high)
+
+            dynamic_transform = self._transforms(scale, H, W)
+            transformed = dynamic_transform(img)
+        except:
+            return None
+
+        # apply random scaling + crop, put each pixel 
+        # in [0.,1.] and reshape to (C x H x W)
+        return transformed, bpp
+
 
 class CityScapes(datasets.Cityscapes):
     """CityScapes wrapper. Docs: `datasets.Cityscapes.`"""

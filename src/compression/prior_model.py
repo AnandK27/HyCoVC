@@ -238,7 +238,7 @@ class PriorEntropyModel(entropy_models.ContinuousEntropyModel):
         cdf_offset = self.CDF_offset.cpu().numpy()
 
         decoded = compression_utils.ans_decompress(encoded, indices, cdf, cdf_length, cdf_offset,
-            coding_shape, precision=self.precision, vectorize=vectorize, block_decode=block_decode)
+            batch_shape, coding_shape, precision=self.precision, vectorize=vectorize, block_decode=block_decode)
 
         symbols = torch.Tensor(decoded)
         symbols = torch.reshape(symbols, symbols_shape)

@@ -17,14 +17,17 @@ class ModelModes(object):
     EVALUATION = 'evaluation'  # actual entropy coding
 
 class Datasets(object):
+    FLICKER = 'flicker'
     OPENIMAGES = 'openimages'
     CITYSCAPES = 'cityscapes'
-    JETS = 'jetimages'
+    JETS = 'jetimages' 
 
 class DatasetPaths(object):
+    FLICKER = '/data/videocoding/dnnvc/datasets/flicker_2W/tmp/flicker_2W_256x256_train_data/'
     OPENIMAGES = 'data/openimages'
     CITYSCAPES = ''
     JETS = ''
+    
 
 class directories(object):
     experiments = 'experiments'
@@ -42,8 +45,8 @@ class args(object):
     save_interval = 50000
     gpu = 0
     multigpu = True
-    dataset = Datasets.OPENIMAGES
-    dataset_path = DatasetPaths.OPENIMAGES
+    dataset = Datasets.FLICKER
+    dataset_path = DatasetPaths.FLICKER
     shuffle = True
 
     # GAN params

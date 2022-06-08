@@ -176,7 +176,7 @@ def ans_compress(symbols, indices, cdf, cdf_length, cdf_offset, coding_shape,
     return encoded
 
 
-def ans_decompress(encoded, indices, cdf, cdf_length, cdf_offset, coding_shape,
+def ans_decompress(encoded, indices, cdf, cdf_length, cdf_offset, batch_shape, coding_shape,
     precision, vectorize=False, block_decode=True):
 
     if vectorize is True:  # Inputs must be identically shaped
