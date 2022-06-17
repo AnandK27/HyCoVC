@@ -12,6 +12,7 @@ from tqdm import tqdm
 import torch
 from torch.utils.data import Dataset, DataLoader
 from torchvision import transforms, datasets
+import random
 
 DIR = os.path.abspath(os.path.dirname(__file__))
 COLOUR_BLACK = 0
@@ -294,6 +295,8 @@ class Flicker(BaseDataset):
         self.imgs = glob.glob(os.path.join(data_dir, '*.jpg'))
         self.imgs += glob.glob(os.path.join(data_dir, '*.png'))
 
+        self.imgs = random.sample(self.imgs,200000)
+
         self.crop_size = crop_size
         self.image_dims = (3, self.crop_size, self.crop_size)
         self.scale_min = SCALE_MIN
@@ -340,14 +343,7 @@ class Flicker(BaseDataset):
             W, H = img.size  # slightly confusing
             bpp = filesize * 8. / (H * W)
 
-            shortest_side_length = min(H,W)
-
-            minimum_scale_factor = float(self.crop_size) / float(shortest_side_length)
-            scale_low = max(minimum_scale_factor, self.scale_min)
-            scale_high = max(scale_low, self.scale_max)
-            scale = np.random.uniform(scale_low, scale_high)
-
-            dynamic_transform = self._transforms(scale, H, W)
+            dynamic_transform = self._transforms(1, H, W)
             transformed = dynamic_transform(img)
         except:
             return None
@@ -356,6 +352,65 @@ class Flicker(BaseDataset):
         # in [0.,1.] and reshape to (C x H x W)
         return transformed, bpp
 
+class Vimeo(BaseDataset):
+
+    files = {"train": "train", "test": "test", "val": "validation"}
+
+    def __init__(self, root= "/data/videocoding/dnnvc/datasets/Vimeo-90k/tmp/vimeo_septuplet/sequences/",
+     path="/data/videocoding/dnnvc/datasets/Vimeo-90k/tmp/vimeo_septuplet/", crop_size=256, mode = 'train', normalize=False, **kwargs):
+
+        super().__init__(root, [transforms.ToTensor()], **kwargs)
+
+        if mode == 'train':
+            self.list_loc = path + 'sep_trainlist.txt'
+        elif mode == 'validation':
+            self.list_loc = path + 'sep_testlist.txt'
+        else:
+            raise ValueError('Unknown mode!')
+
+        self.imgs = []
+        
+
+        with open(self.list_loc) as file:
+            for line in file:
+                self.imgs += [line]
+
+        self.crop_size = crop_size
+        self.image_dims = (3, self.crop_size, self.crop_size)
+        self.scale_min = SCALE_MIN
+        self.scale_max = SCALE_MAX
+        self.normalize = normalize
+
+
+
+    def __len__(self):
+        return len(self.image_input_list)
+
+    def __getitem__(self, index):
+        subdir = self.imgs[index//6]
+
+        input_path = self.root + subdir +'/im' + str(index%6 + 2) + '.png'
+        ref_path = self.root + subdir +'/im' + str(index%6 + 1) + '.png'
+
+        input_img = PIL.Image.open(input_path)
+        ref_img = PIL.Image.open(ref_path)
+
+        input_img = input_img.convert('RGB')
+        ref_img = ref_img.convert('RGB')
+        ref_img += (0.1**0.5)*torch.randn(5, 10, 20)
+        W, H = input_img.size
+        bpp = os.path.getsize(input_path) * 8. /(H*W)
+
+        shortest_side_length = min(H,W)
+        minimum_scale_factor = float(self.crop_size) / float(shortest_side_length)
+        scale_low = max(minimum_scale_factor, self.scale_min)
+        scale_high = max(scale_low, self.scale_max)
+        scale = np.random.uniform(scale_low, scale_high)
+
+        dynamic_transform = self._transforms(scale, H, W)
+        input_tf, ref_tf = dynamic_transform([input_img, ref_img])
+
+        return (input_tf, ref_tf), bpp
 
 class CityScapes(datasets.Cityscapes):
     """CityScapes wrapper. Docs: `datasets.Cityscapes.`"""

@@ -24,6 +24,7 @@ hific_dev/
 checkpoints/
 *.txt
 *.sh
+*.ipynb
 
 # C extensions
 *.so

@@ -116,7 +116,7 @@ class Model(nn.Module):
             storage[key].append(loss)
 
 
-    def compression_forward(self, x):
+    def compression_forward(self, inp):
         """
         Forward pass through encoder, hyperprior, and decoder.
 
@@ -128,6 +128,8 @@ class Model(nn.Module):
         Outputs
         intermediates: NamedTuple of intermediate values
         """
+
+        x, ref = inp
         image_dims = tuple(x.size()[1:])  # (C,H,W)
 
         if self.model_mode == ModelModes.EVALUATION and (self.training is False):
@@ -136,7 +138,7 @@ class Model(nn.Module):
             x = utils.pad_factor(x, x.size()[2:], factor)
 
         # Encoder forward pass
-        y = self.Encoder(x)
+        y = self.Encoder(x, ref)
 
         if self.model_mode == ModelModes.EVALUATION and (self.training is False):
             n_hyperencoder_downsamples = self.Hyperprior.analysis_net.n_downsampling_layers
@@ -259,7 +261,7 @@ class Model(nn.Module):
 
         return D_loss, G_loss
 
-    def compress(self, x, silent=False):
+    def compress(self, inp, silent=False):
 
         """
         * Pass image through encoder to obtain latents: x -> Encoder() -> y 
@@ -270,7 +272,7 @@ class Model(nn.Module):
           scale over latents: z -> hyperdecoder() -> (mu, sigma).
         * Encode latents via entropy model derived from (mean, scale) hyperprior output.
         """
-
+        x, ref = inp
         assert self.model_mode == ModelModes.EVALUATION and (self.training is False), (
             f'Set model mode to {ModelModes.EVALUATION} for compression.')
         
@@ -282,7 +284,7 @@ class Model(nn.Module):
             x = utils.pad_factor(x, x.size()[2:], factor)
 
         # Encoder forward pass
-        y = self.Encoder(x)
+        y = self.Encoder(x, ref)
 
         if self.model_mode == ModelModes.EVALUATION and (self.training is False):
             n_hyperencoder_downsamples = self.Hyperprior.analysis_net.n_downsampling_layers
@@ -343,16 +345,15 @@ class Model(nn.Module):
 
         return reconstruction
 
-    def forward(self, x, train_generator=False, return_intermediates=False, writeout=True):
+    def forward(self, inp, train_generator=False, return_intermediates=False, writeout=True):
 
         self.writeout = writeout
-
         losses = dict()
         if train_generator is True:
             # Define a 'step' as one cycle of G-D training
             self.step_counter += 1
 
-        intermediates, hyperinfo = self.compression_forward(x)
+        intermediates, hyperinfo = self.compression_forward(inp)
 
         if self.model_mode == ModelModes.EVALUATION:
 

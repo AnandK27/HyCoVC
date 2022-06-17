@@ -99,9 +99,11 @@ class Encoder(nn.Module):
             self.post_pad,
             nn.Conv2d(filters[4], C, kernel_dim, stride=1),
         )
+
         
                 
-    def forward(self, x):
+    def forward(self, x, ref):
+        x = torch.cat((x, ref))
         x = self.conv_block1(x)
         x = self.conv_block2(x)
         x = self.conv_block3(x)

@@ -40,7 +40,7 @@ class args(object):
     silent = True
     n_epochs = 8
     n_steps = 1e6
-    batch_size = 8
+    batch_size = 6
     log_interval = 1000
     save_interval = 50000
     gpu = 0
@@ -68,7 +68,7 @@ class args(object):
     
     # Shapes
     crop_size = 256
-    image_dims = (3,256,256)
+    image_dims = (6,256,256)
     latent_dims = (latent_channels,16,16)
     
     # Optimizer params
