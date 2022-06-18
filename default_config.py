@@ -27,6 +27,7 @@ class DatasetPaths(object):
     OPENIMAGES = 'data/openimages'
     CITYSCAPES = ''
     JETS = ''
+    VIMEO = "/data/videocoding/dnnvc/datasets/Vimeo-90k/tmp/vimeo_septuplet/sequences/"
     
 
 class directories(object):
@@ -36,7 +37,7 @@ class args(object):
     """
     Shared config
     """
-    name = 'hific_v0.1'
+    name = 'Baseline_video'
     silent = True
     n_epochs = 8
     n_steps = 1e6
@@ -45,8 +46,8 @@ class args(object):
     save_interval = 50000
     gpu = 0
     multigpu = True
-    dataset = Datasets.FLICKER
-    dataset_path = DatasetPaths.FLICKER
+    dataset = Datasets.VIMEO
+    dataset_path = DatasetPaths.VIMEO
     shuffle = True
 
     # GAN params

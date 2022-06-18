@@ -21,7 +21,8 @@ NUM_DATASET_WORKERS = 4
 SCALE_MIN = 0.75
 SCALE_MAX = 0.95
 DATASETS_DICT = {"openimages": "OpenImages", "cityscapes": "CityScapes", 
-                 "jetimages": "JetImages", "evaluation": "Evaluation", "flicker" : "Flicker"}
+                 "jetimages": "JetImages", "evaluation": "Evaluation",
+                  "flicker" : "Flicker", "vimeo" : "Vimeo"}
 DATASETS = list(DATASETS_DICT.keys())
 
 def get_dataset(dataset):
