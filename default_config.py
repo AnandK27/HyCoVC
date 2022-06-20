@@ -20,7 +20,8 @@ class Datasets(object):
     FLICKER = 'flicker'
     OPENIMAGES = 'openimages'
     CITYSCAPES = 'cityscapes'
-    JETS = 'jetimages' 
+    JETS = 'jetimages'
+    VIMEO = 'vimeo'
 
 class DatasetPaths(object):
     FLICKER = '/data/videocoding/dnnvc/datasets/flicker_2W/tmp/flicker_2W_256x256_train_data/'

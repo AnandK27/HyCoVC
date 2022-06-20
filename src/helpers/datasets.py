@@ -12,6 +12,7 @@ from tqdm import tqdm
 import torch
 from torch.utils.data import Dataset, DataLoader
 from torchvision import transforms, datasets
+import torchvision.transforms.functional as TF
 import random
 
 DIR = os.path.abspath(os.path.dirname(__file__))
@@ -374,6 +375,7 @@ class Vimeo(BaseDataset):
 
         with open(self.list_loc) as file:
             for line in file:
+                line = line.strip('\n')
                 self.imgs += [line]
 
         self.crop_size = crop_size
@@ -385,7 +387,7 @@ class Vimeo(BaseDataset):
 
 
     def __len__(self):
-        return len(self.image_input_list)
+        return len(self.imgs*6)
 
     def __getitem__(self, index):
         subdir = self.imgs[index//6]
@@ -398,7 +400,8 @@ class Vimeo(BaseDataset):
 
         input_img = input_img.convert('RGB')
         ref_img = ref_img.convert('RGB')
-        ref_img += (0.1**0.5)*torch.randn(5, 10, 20)
+        ref_img += (0.1**0.5)*np.random.randn(*np.array(ref_img).shape)
+        ref_img = PIL.Image.fromarray(ref_img, 'RGB')
         W, H = input_img.size
         bpp = os.path.getsize(input_path) * 8. /(H*W)
 
@@ -408,10 +411,43 @@ class Vimeo(BaseDataset):
         scale_high = max(scale_low, self.scale_max)
         scale = np.random.uniform(scale_low, scale_high)
 
-        dynamic_transform = self._transforms(scale, H, W)
-        input_tf, ref_tf = dynamic_transform([input_img, ref_img])
+        input_tf, ref_tf = self._transforms(input_img, ref_img, scale, H, W)
 
         return (input_tf, ref_tf), bpp
+
+
+    def _transforms(self, input, ref, scale, H, W):
+        """
+        Up(down)scale and randomly crop to `crop_size` x `crop_size`
+        """
+        #Resize
+        resize = transforms.Resize(size=(H, W))
+        input = resize(input)
+        ref = resize(ref)
+
+        #Random Crop
+        r_crop = transforms.RandomCrop(self.crop_size)
+        input = r_crop(input)
+        ref = r_crop(ref)
+
+
+         # Random horizontal flipping
+        if random.random() > 0.5:
+            input = TF.hflip(input)
+            ref = TF.hflip(ref)
+
+       
+
+        #To Tensor
+        input = TF.to_tensor(input)
+        ref = TF.to_tensor(ref)
+
+        if self.normalize is True:
+            normalise = transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
+            input = normalise(input)
+            ref = normalise(ref)
+
+        return input, ref
 
 class CityScapes(datasets.Cityscapes):
     """CityScapes wrapper. Docs: `datasets.Cityscapes.`"""

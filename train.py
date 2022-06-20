@@ -63,14 +63,19 @@ def test(args, model, epoch, idx, data, test_data, test_bpp, device, epoch_test_
 
     model.eval()  
     with torch.no_grad():
-        data = data.to(device, dtype=torch.float)
 
-        losses, intermediates = model(data, return_intermediates=True, writeout=False)
+        inp = data[0].to(device, dtype=torch.float)
+        ref = data[1].to(device, dtype=torch.float)
+            
+
+        losses, intermediates = model((inp, ref), return_intermediates=True, writeout=False)
         utils.save_images(train_writer, model.step_counter, intermediates.input_image, intermediates.reconstruction,
             fname=os.path.join(args.figures_save, 'recon_epoch{}_idx{}_TRAIN_{:%Y_%m_%d_%H:%M}.jpg'.format(epoch, idx, datetime.datetime.now())))
 
-        test_data = test_data.to(device, dtype=torch.float)
-        losses, intermediates = model(test_data, return_intermediates=True, writeout=True)
+        test_inp = test_data[0].to(device, dtype=torch.float)
+        test_ref = test_data[1].to(device, dtype=torch.float)
+
+        losses, intermediates = model((test_inp, test_ref), return_intermediates=True, writeout=True)
         utils.save_images(test_writer, model.step_counter, intermediates.input_image, intermediates.reconstruction,
             fname=os.path.join(args.figures_save, 'recon_epoch{}_idx{}_TEST_{:%Y_%m_%d_%H:%M}.jpg'.format(epoch, idx, datetime.datetime.now())))
     
@@ -80,7 +85,7 @@ def test(args, model, epoch, idx, data, test_data, test_bpp, device, epoch_test_
         
         best_test_loss = utils.log(model, storage, epoch, idx, mean_test_loss, compression_loss.item(), 
                                      best_test_loss, start_time, epoch_start_time, 
-                                     batch_size=data.shape[0], avg_bpp=test_bpp.mean().item(),header='[TEST]', 
+                                     batch_size=data[0].shape[0], avg_bpp=test_bpp.mean().item(),header='[TEST]', 
                                      logger=logger, writer=test_writer)
         
     return best_test_loss, epoch_test_loss
@@ -113,12 +118,13 @@ def train(args, model, train_loader, test_loader, device, logger, optimizers):
 
         for idx, (data, bpp) in enumerate(tqdm(train_loader, desc='Train'), 0):
 
-            data = data.to(device, dtype=torch.float)
+            inp = data[0].to(device, dtype=torch.float)
+            ref = data[1].to(device, dtype=torch.float)
             
             try:
                 if model.use_discriminator is True:
                     # Train D for D_steps, then G, using distinct batches
-                    losses = model(data, train_generator=train_generator)
+                    losses = model((inp, ref), train_generator=train_generator)
                     compression_loss = losses['compression']
                     disc_loss = losses['disc']
 
@@ -136,7 +142,7 @@ def train(args, model, train_loader, test_loader, device, logger, optimizers):
                         continue
                 else:
                     # Rate, distortion, perceptual only
-                    losses = model(data, train_generator=True)
+                    losses = model((inp, ref), train_generator=True)
                     compression_loss = losses['compression']
                     optimize_compression_loss(compression_loss, amortization_opt, hyperlatent_likelihood_opt)
 
@@ -154,7 +160,7 @@ def train(args, model, train_loader, test_loader, device, logger, optimizers):
                 mean_epoch_loss = np.mean(epoch_loss)
 
                 best_loss = utils.log(model, storage, epoch, idx, mean_epoch_loss, compression_loss.item(),
-                                best_loss, start_time, epoch_start_time, batch_size=data.shape[0],
+                                best_loss, start_time, epoch_start_time, batch_size=data[0].shape[0],
                                 avg_bpp=bpp.mean().item(), logger=logger, writer=train_writer)
                 try:
                     test_data, test_bpp = test_loader_iter.next()
