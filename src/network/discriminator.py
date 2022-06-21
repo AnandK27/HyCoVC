@@ -26,7 +26,7 @@ class Discriminator(nn.Module):
         
         self.image_dims = image_dims
         self.context_dims = context_dims
-        im_channels = self.image_dims[0]
+        im_channels = int(self.image_dims[0]/2)
         kernel_dim = 4
         context_C_out = 12
         filters = (64, 128, 256, 512)
