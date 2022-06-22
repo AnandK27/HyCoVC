@@ -35,11 +35,11 @@ def make_deterministic(seed=42):
 def prepare_dataloader(args, input_dir, output_dir, batch_size=1):
 
     # `batch_size` must be 1 for images of different shapes
-    input_images = glob.glob(os.path.join(input_dir, '*.jpg'))
-    input_images += glob.glob(os.path.join(input_dir, '*.png'))
-    assert len(input_images) > 0, 'No valid image files found in supplied directory!'
-    print('Input images')
-    pprint(input_images)
+    # input_images = glob.glob(os.path.join(input_dir, '*.jpg'))
+    # input_images += glob.glob(os.path.join(input_dir, '*.png'))
+    # assert len(input_images) > 0, 'No valid image files found in supplied directory!'
+    # print('Input images')
+    # pprint(input_images)
 
     eval_loader = datasets.get_dataloaders('evaluation', root=input_dir, batch_size=batch_size,
                                            logger=None, shuffle=False, normalize=args.normalize_input_image)
@@ -122,8 +122,16 @@ def compress_and_decompress(args):
     model.Hyperprior.hyperprior_entropy_model.build_tables()
     logger.info('All tables built.')
 
-
-    eval_loader = datasets.get_dataloaders('evaluation', root=args.image_dir, batch_size=args.batch_size,
+    if args.image_dir == "vimeo":
+        eval_loader = datasets.get_dataloaders(args.dataset,
+                                root=args.dataset_path,
+                                batch_size=args.batch_size,
+                                logger=logger,
+                                mode='validation',
+                                shuffle=True,
+                                normalize=args.normalize_input_image)
+    else:
+        eval_loader = datasets.get_dataloaders('evaluation', root=args.image_dir, batch_size=args.batch_size,
                                            logger=logger, shuffle=False, normalize=args.normalize_input_image)
 
     n, N = 0, len(eval_loader.dataset)
@@ -140,48 +148,51 @@ def compress_and_decompress(args):
 
     with torch.no_grad():
 
-        for idx, (data, bpp, filenames) in enumerate(tqdm(eval_loader), 0):
-            data = data.to(device, dtype=torch.float)
-            B = data.size(0)
-            input_filenames_total.extend(filenames)
+        for idx, (data, bpp) in enumerate(tqdm(eval_loader), 0):
+            inp = data[0].to(device, dtype=torch.float)
+            ref = data[1].to(device, dtype=torch.float)
+
+            B = inp.size(0)
+            #input_filenames_total.extend(filenames)
 
             if args.reconstruct is True:
                 # Reconstruction without compression
-                reconstruction, q_bpp = model(data, writeout=False)
+                reconstruction, q_bpp = model((inp, ref), writeout=False)
             else:
                 # Perform entropy coding
-                compressed_output = model.compress(data)
+                compressed_output = model.compress((inp, ref))
 
                 if args.save is True:
                     assert B == 1, 'Currently only supports saving single images.'
                     compression_utils.save_compressed_format(compressed_output, 
-                        out_path=os.path.join(args.output_dir, f"{filenames[0]}_compressed.hfc"))
+                        out_path=os.path.join(args.output_dir, f"{idx}_compressed.hfc"))
 
                 reconstruction = model.decompress(compressed_output)
                 q_bpp = compressed_output.total_bpp
 
             if args.normalize_input_image is True:
                 # [-1., 1.] -> [0., 1.]
-                data = (data + 1.) / 2.
+                inp = (inp + 1.) / 2.
 
-            perceptual_loss = perceptual_loss_fn.forward(reconstruction, data, normalize=True)
+            perceptual_loss = perceptual_loss_fn.forward(reconstruction, inp, normalize=True)
 
             if args.metrics is True:
                 # [0., 1.] -> [0., 255.]
-                psnr = metrics.psnr(reconstruction.cpu().numpy() * max_value, data.cpu().numpy() * max_value, max_value)
-                ms_ssim = MS_SSIM_func(reconstruction * max_value, data * max_value)
+                psnr = metrics.psnr(reconstruction.cpu().numpy() * max_value, inp.cpu().numpy() * max_value, max_value)
+                ms_ssim = MS_SSIM_func(reconstruction * max_value, inp * max_value)
                 PSNR_total[n:n + B] = torch.Tensor(psnr)
                 MS_SSIM_total[n:n + B] = ms_ssim.data
 
-            for subidx in range(reconstruction.shape[0]):
-                if B > 1:
-                    q_bpp_per_im = float(q_bpp.cpu().numpy()[subidx])
-                else:
-                    q_bpp_per_im = float(q_bpp.item()) if type(q_bpp) == torch.Tensor else float(q_bpp)
+            if args.img_save:
+                for subidx in range(reconstruction.shape[0]):
+                    if B > 1:
+                        q_bpp_per_im = float(q_bpp.cpu().numpy()[subidx])
+                    else:
+                        q_bpp_per_im = float(q_bpp.item()) if type(q_bpp) == torch.Tensor else float(q_bpp)
 
-                fname = os.path.join(args.output_dir, "{}_RECON_{:.3f}bpp.png".format(filenames[subidx], q_bpp_per_im))
-                torchvision.utils.save_image(reconstruction[subidx], fname, normalize=True)
-                output_filenames_total.append(fname)
+                    fname = os.path.join(args.output_dir, "{}_RECON_{:.3f}bpp.png".format(filenames[subidx], q_bpp_per_im))
+                    torchvision.utils.save_image(reconstruction[subidx], fname, normalize=True)
+                    output_filenames_total.append(fname)
 
             bpp_total[n:n + B] = bpp.data
             q_bpp_total[n:n + B] = q_bpp.data if type(q_bpp) == torch.Tensor else q_bpp
@@ -224,15 +235,16 @@ def main(**kwargs):
     parser.add_argument("-rc", "--reconstruct", help="Reconstruct input image without compression.", action="store_true")
     parser.add_argument("-save", "--save", help="Save compressed format to disk.", action="store_true")
     parser.add_argument("-metrics", "--metrics", help="Evaluate compression metrics.", action="store_true")
+    parser.add_argument("-img_save", "--img_save", help="Store Compressed Images", action="store_true")
     args = parser.parse_args()
 
-    input_images = glob.glob(os.path.join(args.image_dir, '*.jpg'))
-    input_images += glob.glob(os.path.join(args.image_dir, '*.png'))
+    # input_images = glob.glob(os.path.join(args.image_dir, '*.jpg'))
+    # input_images += glob.glob(os.path.join(args.image_dir, '*.png'))
 
-    assert len(input_images) > 0, 'No valid image files found in supplied directory!'
+    # assert len(input_images) > 0, 'No valid image files found in supplied directory!'
 
-    print('Input images')
-    pprint(input_images)
+    # print('Input images')
+    # pprint(input_images)
 
     compress_and_decompress(args)
 

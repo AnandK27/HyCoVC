@@ -207,6 +207,7 @@ def load_model(save_path, logger, device, model_type=None, model_mode=None, curr
     if hasattr(args, 'sample_noise') is False:
         args.sample_noise = False
         args.noise_dim = 0
+    args.image_dims = (6,256,256)
 
     model = Model(args, logger, model_type=model_type, model_mode=model_mode)
 
