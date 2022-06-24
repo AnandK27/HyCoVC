@@ -213,8 +213,8 @@ class Hyperprior(CodingModel):
         hyperlatents_decoded = hyperlatents_decoded.to(latents)
 
         # Recover latent statistics from compressed hyperlatents
-        latent_means = self.synthesis_mu(hyperlatents_decoded)
-        latent_scales = self.synthesis_std(hyperlatents_decoded)
+        latent_means = self.synthesis_mu(hyperlatents_decoded, latents)
+        latent_scales = self.synthesis_std(hyperlatents_decoded, latents)
         latent_scales = lower_bound_toward(latent_scales, self.scale_lower_bound)
 
         # Use latent statistics to build indexed probability tables, and compress latents
@@ -245,7 +245,7 @@ class Hyperprior(CodingModel):
 
         return compression_output
 
-    def decompress_forward(self, compression_output, device):
+    def decompress_forward(self, compression_output, latents, device):
 
         hyperlatents_encoded = compression_output.hyperlatents_encoded
         latents_encoded = compression_output.latents_encoded
@@ -260,8 +260,8 @@ class Hyperprior(CodingModel):
         hyperlatents_decoded = hyperlatents_decoded.to(device)
 
         # Recover latent statistics from compressed hyperlatents
-        latent_means = self.synthesis_mu(hyperlatents_decoded)
-        latent_scales = self.synthesis_std(hyperlatents_decoded)
+        latent_means = self.synthesis_mu(hyperlatents_decoded, latents)
+        latent_scales = self.synthesis_std(hyperlatents_decoded, latents)
         latent_scales = lower_bound_toward(latent_scales, self.scale_lower_bound)
         latent_spatial_shape = latent_scales.size()[2:]
 
@@ -296,8 +296,8 @@ class Hyperprior(CodingModel):
         else:
             hyperlatents_decoded = quantized_hyperlatents
 
-        latent_means = self.synthesis_mu(hyperlatents_decoded)
-        latent_scales = self.synthesis_std(hyperlatents_decoded)
+        latent_means = self.synthesis_mu(hyperlatents_decoded, latents)
+        latent_scales = self.synthesis_std(hyperlatents_decoded, latents)
         # latent_scales = F.softplus(latent_scales)
         latent_scales = lower_bound_toward(latent_scales, self.scale_lower_bound)
 

@@ -32,6 +32,19 @@ def unpack_likelihood_params(x, conv_out, log_scales_min):
 
     return x, (logit_pis, means, log_scales), K
     
+class MaskedConv2d(nn.Conv2d):
+    def __init__(self, mask_type, *args, **kwargs):
+        super(MaskedConv2d, self).__init__(*args, **kwargs)
+        assert mask_type in {'A', 'B'}
+        self.register_buffer('mask', self.weight.data.clone())
+        _, _, kH, kW = self.weight.size()
+        self.mask.fill_(1)
+        self.mask[:, :, kH // 2, kW // 2 + (mask_type == 'B'):] = 0
+        self.mask[:, :, kH // 2 + 1:] = 0
+
+    def forward(self, x):
+        self.weight.data *= self.mask
+        return super(MaskedConv2d, self).forward(x)
 
 class HyperpriorAnalysis(nn.Module):
     """
@@ -80,14 +93,17 @@ class HyperpriorSynthesis(nn.Module):
         self.activation = getattr(F, activation)
         self.final_activation = final_activation
 
-        self.conv1 = nn.ConvTranspose2d(N, N, **cnn_kwargs)
+        self.conv1 = nn.ConvTranspose2d(2*N, N, **cnn_kwargs)
         self.conv2 = nn.ConvTranspose2d(N, N, **cnn_kwargs)
         self.conv3 = nn.ConvTranspose2d(N, C, kernel_size=3, stride=1, padding=1)
+        self.mask_conv = MaskedConv2d('A', C,  N, 5, 1)
 
         if self.final_activation is not None:
             self.final_activation = getattr(F, final_activation)
 
-    def forward(self, x):
+    def forward(self, x, latents):
+        latents = self.mask_conv(latents)
+        x = torch.cat(x, latents)
         x = self.activation(self.conv1(x))
         x = self.activation(self.conv2(x))
         x = self.conv3(x)
@@ -111,15 +127,18 @@ class HyperpriorSynthesisDLMM(nn.Module):
         self.activation = getattr(F, activation)
         self.final_activation = final_activation
 
-        self.conv1 = nn.ConvTranspose2d(N, N, **cnn_kwargs)
+        self.conv1 = nn.ConvTranspose2d(2*N, N, **cnn_kwargs)
         self.conv2 = nn.ConvTranspose2d(N, N, **cnn_kwargs)
         self.conv3 = nn.ConvTranspose2d(N, C, kernel_size=3, stride=1, padding=1)
         self.conv_out = nn.Conv2d(C, get_num_DLMM_channels(C), kernel_size=1, stride=1)
+        self.mask_conv = MaskedConv2d('A', C,  N, 5, 1)
 
         if self.final_activation is not None:
             self.final_activation = getattr(F, final_activation)
 
-    def forward(self, x):
+    def forward(self, x, latents):
+        latents = self.mask_conv(latents)
+        x = torch.cat(x, latents)
         x = self.activation(self.conv1(x))
         x = self.activation(self.conv2(x))
         x = self.conv3(x)
