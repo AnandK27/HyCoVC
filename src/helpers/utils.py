@@ -84,9 +84,9 @@ def setup_generic_signature(args, special_info):
 
     time_signature = '{:%Y_%m_%d_%H:%M}'.format(datetime.datetime.now()).replace(':', '_')
     if args.name is not None:
-        args.name = '{}_{}_{}_{}'.format(args.name, args.dataset, special_info, time_signature)
+        args.name = '{}_{}_{}_{}_{}'.format(args.name, args.regime, args.dataset, special_info, time_signature)
     else:
-        args.name = '{}_{}_{}'.format(args.dataset, special_info, time_signature)
+        args.name = '{}_{}_{}_{}'.format(args.dataset, args.regime, special_info, time_signature)
 
     print(args.name)
     args.snapshot = os.path.join('experiments', args.name)

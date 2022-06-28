@@ -134,7 +134,7 @@ def compress_and_decompress(args):
         eval_loader = datasets.get_dataloaders('evaluation', root=args.image_dir, batch_size=args.batch_size,
                                            logger=logger, shuffle=False, normalize=args.normalize_input_image)
 
-    n, N = 0, len(eval_loader.dataset)
+    n, N = 0, len(eval_loader)
     input_filenames_total = list()
     output_filenames_total = list()
     bpp_total, q_bpp_total, LPIPS_total = torch.Tensor(N), torch.Tensor(N), torch.Tensor(N)
@@ -149,6 +149,8 @@ def compress_and_decompress(args):
     with torch.no_grad():
 
         for idx, (data, bpp) in enumerate(tqdm(eval_loader), 0):
+            
+           
             inp = data[0].to(device, dtype=torch.float)
             ref = data[1].to(device, dtype=torch.float)
 
@@ -160,7 +162,7 @@ def compress_and_decompress(args):
                 reconstruction, q_bpp = model((inp, ref), writeout=False)
             else:
                 # Perform entropy coding
-                compressed_output = model.compress((inp, ref))
+                compressed_output, attained_bpp = model.compress((inp, ref), silent=True)
 
                 if args.save is True:
                     assert B == 1, 'Currently only supports saving single images.'
@@ -168,7 +170,7 @@ def compress_and_decompress(args):
                         out_path=os.path.join(args.output_dir, f"{idx}_compressed.hfc"))
 
                 reconstruction = model.decompress(compressed_output)
-                q_bpp = compressed_output.total_bpp
+                q_bpp = attained_bpp
 
             if args.normalize_input_image is True:
                 # [-1., 1.] -> [0., 1.]
@@ -198,6 +200,7 @@ def compress_and_decompress(args):
             q_bpp_total[n:n + B] = q_bpp.data if type(q_bpp) == torch.Tensor else q_bpp
             LPIPS_total[n:n + B] = perceptual_loss.data
             n += B
+            
 
     df = pd.DataFrame([input_filenames_total, output_filenames_total]).T
     df.columns = ['input_filename', 'output_filename']
@@ -209,7 +212,7 @@ def compress_and_decompress(args):
         df['PSNR'] = PSNR_total.cpu().numpy()
         df['MS_SSIM'] = MS_SSIM_total.cpu().numpy()
 
-    df_path = os.path.join(args.output_dir, 'compression_metrics.h5')
+    df_path = os.path.join(args.output_dir, f'compression_metrics_{args.regime}.h5')
     df.to_hdf(df_path, key='df')
 
     pprint(df)
