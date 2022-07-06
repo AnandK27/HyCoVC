@@ -23,7 +23,7 @@ SCALE_MIN = 0.75
 SCALE_MAX = 0.95
 DATASETS_DICT = {"openimages": "OpenImages", "cityscapes": "CityScapes", 
                  "jetimages": "JetImages", "evaluation": "Evaluation",
-                  "flicker" : "Flicker", "vimeo" : "Vimeo"}
+                  "flicker" : "Flicker", "vimeo" : "Vimeo", 'uvg' : 'UVG'}
 DATASETS = list(DATASETS_DICT.keys())
 
 def get_dataset(dataset):
@@ -448,6 +448,63 @@ class Vimeo(BaseDataset):
             ref = normalise(ref)
 
         return input, ref
+
+
+class UVG(BaseDataset):
+
+    files = {"train": "train", "test": "test", "val": "validation"}
+
+    def __init__(self, root= "/home/kumarana/tmp/UVG/images/", mode = 'validation', normalize=False, **kwargs):
+
+        super().__init__(root, [transforms.ToTensor()], **kwargs)
+
+        self.imgs = [os.path.join(root, x ,y)  for x in os.listdir(root) for i, y in enumerate(os.listdir(os.path.join(root, x))) if i !=0 ]
+        
+        self.root = root
+        self.normalize = normalize
+        self.size = (1080, 1920)
+
+
+    def __len__(self):
+        return len(self.imgs)
+
+    def __getitem__(self, index):
+
+        input_path = self.imgs[index]
+        ref_path = input_path.replace(input_path[-7:-4], '{:03d}'.format(int(input_path[-7:-4])-1))
+
+        input_img = PIL.Image.open(input_path)
+        ref_img = PIL.Image.open(ref_path)
+
+        input_img = input_img.convert('RGB')
+        ref_img = ref_img.convert('RGB')
+        ref_img += (0.1**0.5)*np.random.randn(*np.array(ref_img).shape)
+        ref_img = PIL.Image.fromarray(ref_img, 'RGB')
+        W, H = input_img.size
+        bpp = os.path.getsize(input_path) * 8. /(H*W)
+
+        input_tf, ref_tf = self._transforms(input_img, ref_img)
+
+        return (input_tf, ref_tf), bpp
+    
+    def _transforms(self, input, ref):
+
+        resize = transforms.Resize(size=self.size)
+        input = resize(input)
+        ref = resize(ref)
+
+
+        #To Tensor
+        input = TF.to_tensor(input)
+        ref = TF.to_tensor(ref)
+
+        if self.normalize is True:
+            normalise = transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
+            input = normalise(input)
+            ref = normalise(ref)
+
+        return input, ref
+
 
 class CityScapes(datasets.Cityscapes):
     """CityScapes wrapper. Docs: `datasets.Cityscapes.`"""

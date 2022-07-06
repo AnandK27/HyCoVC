@@ -5,6 +5,7 @@ import numpy as np
 
 from src.normalisation import channel, instance
 
+
 class Encoder(nn.Module):
     def __init__(self, image_dims, batch_size, activation='relu', C=220,
                  channel_norm=True):
@@ -115,9 +116,11 @@ class Encoder(nn.Module):
 
 if __name__ == "__main__":
     B = 2
-    C = 7
+    C = 3
     print('Image 1')
-    x = torch.randn((B,3,256,256))
+    x = torch.randn((B,3,1080,1920))
+    y = x
     x_dims = tuple(x.size())
     E = Encoder(image_dims=x_dims[1:], batch_size=B, C=C)
+    print(E.forward(x, y).shape)
 

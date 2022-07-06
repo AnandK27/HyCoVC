@@ -22,6 +22,7 @@ class Datasets(object):
     CITYSCAPES = 'cityscapes'
     JETS = 'jetimages'
     VIMEO = 'vimeo'
+    UVG = 'uvg'
 
 class DatasetPaths(object):
     FLICKER = '/data/videocoding/dnnvc/datasets/flicker_2W/tmp/flicker_2W_256x256_train_data/'
@@ -29,6 +30,7 @@ class DatasetPaths(object):
     CITYSCAPES = ''
     JETS = ''
     VIMEO = "/data/videocoding/dnnvc/datasets/Vimeo-90k/tmp/vimeo_septuplet/sequences/"
+    UVG = '/home/kumarana/tmp/UVG/images'
     
 
 class directories(object):

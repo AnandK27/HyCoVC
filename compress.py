@@ -130,6 +130,13 @@ def compress_and_decompress(args):
                                 mode='validation',
                                 shuffle=True,
                                 normalize=args.normalize_input_image)
+    elif args.image_dir == 'uvg':
+        eval_loader = datasets.get_dataloaders('uvg',
+                                root='/home/kumarana/tmp/UVG/images',
+                                batch_size=args.batch_size,
+                                logger=logger,
+                                mode='validation',
+                                normalize=args.normalize_input_image)
     else:
         eval_loader = datasets.get_dataloaders('evaluation', root=args.image_dir, batch_size=args.batch_size,
                                            logger=logger, shuffle=False, normalize=args.normalize_input_image)

@@ -136,6 +136,7 @@ class Model(nn.Module):
             n_encoder_downsamples = self.Encoder.n_downsampling_layers
             factor = 2 ** n_encoder_downsamples
             x = utils.pad_factor(x, x.size()[2:], factor)
+            ref = utils.pad_factor(ref, ref.size()[2:], factor)
 
         # Encoder forward pass
         y = self.Encoder(x, ref)
