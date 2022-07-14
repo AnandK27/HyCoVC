@@ -103,8 +103,7 @@ class Encoder(nn.Module):
 
         
                 
-    def forward(self, x, ref):
-        x = torch.cat((x, ref), 1)
+    def forward(self, x):
         x = self.conv_block1(x)
         x = self.conv_block2(x)
         x = self.conv_block3(x)

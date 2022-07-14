@@ -13,11 +13,12 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 # Custom modules
-from src import hyperprior
+from src import hyperprior, MVnet
 from src.loss import losses
 from src.helpers import maths, datasets, utils
 from src.network import encoder, generator, discriminator, hyper
-from src.loss.perceptual_similarity import perceptual_loss as ps 
+from src.loss.perceptual_similarity import perceptual_loss as ps
+from src.MVnet import MVNet
 
 from default_config import ModelModes, ModelTypes, hific_args, directories
 
@@ -26,7 +27,9 @@ Intermediates = namedtuple("Intermediates",
      "reconstruction",          # [0, 1]
      "latents_quantized",       # Latents post-quantization.
      "n_bpp",                   # Differential entropy estimate.
-     "q_bpp"])                  # Shannon entropy estimate.
+     "q_bpp",
+     "pred",
+     "warpframe"])                  # Shannon entropy estimate.
 
 Disc_out= namedtuple("disc_out",
     ["D_real", "D_gen", "D_real_logits", "D_gen_logits"])
@@ -64,6 +67,8 @@ class Model(nn.Module):
         self.entropy_code = False
         if model_mode == ModelModes.EVALUATION:
             self.entropy_code = True
+
+        self.motion_vector = MVNet(self.args.mv_channels, likelihood_type=self.args.likelihood_type, entropy_code=self.entropy_code)
 
         self.Encoder = encoder.Encoder(self.image_dims, self.batch_size, C=self.args.latent_channels,
             channel_norm=self.args.use_channel_norm)
@@ -138,8 +143,12 @@ class Model(nn.Module):
             x = utils.pad_factor(x, x.size()[2:], factor)
             ref = utils.pad_factor(ref, ref.size()[2:], factor)
 
+
+        mvinfo = self.motion_vector(x, ref)
+        x_res = x - mvinfo.pred
+
         # Encoder forward pass
-        y = self.Encoder(x, ref)
+        y = self.Encoder(x_res)
 
         if self.model_mode == ModelModes.EVALUATION and (self.training is False):
             n_hyperencoder_downsamples = self.Hyperprior.analysis_net.n_downsampling_layers
@@ -153,7 +162,10 @@ class Model(nn.Module):
         total_qbpp = hyperinfo.total_qbpp
 
         # Use quantized latents as input to G
-        reconstruction = self.Generator(latents_quantized)
+        recon_res = self.Generator(latents_quantized)
+
+        reconstruction = recon_res + mvinfo.pred
+
         
         if self.args.normalize_input_image is True:
             reconstruction = torch.tanh(reconstruction)
@@ -163,7 +175,7 @@ class Model(nn.Module):
             reconstruction = reconstruction[:, :, :image_dims[1], :image_dims[2]]
         
         intermediates = Intermediates(x, reconstruction, latents_quantized, 
-            total_nbpp, total_qbpp)
+            total_nbpp + mvinfo.mv_z_nbpp , total_qbpp + mvinfo.mv_z_qbpp, mvinfo.pred, mvinfo.warpframe)
 
         return intermediates, hyperinfo
 
@@ -205,13 +217,15 @@ class Model(nn.Module):
         
         x_real = intermediates.input_image
         x_gen = intermediates.reconstruction
+        pred = intermediates.pred
+        warpframe = intermediates.warpframe
 
         if self.args.normalize_input_image is True:
             # [-1.,1.] -> [0.,1.]
             x_real = (x_real + 1.) / 2.
             x_gen = (x_gen + 1.) / 2.
 
-        distortion_loss = self.distortion_loss(x_gen, x_real)
+        distortion_loss = self.distortion_loss(x_gen, x_real) + self.args.warp_coeff * (self.distortion_loss(pred, x_real) + self.distortion_loss(warpframe, x_real))
         perceptual_loss = self.perceptual_loss_wrapper(x_gen, x_real, normalize=True)
 
         weighted_distortion = self.args.k_M * distortion_loss

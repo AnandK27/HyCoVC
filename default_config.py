@@ -44,7 +44,7 @@ class args(object):
     silent = True
     n_epochs = 8
     n_steps = 1e6
-    batch_size = 6
+    batch_size = 4
     log_interval = 1000
     save_interval = 50000
     gpu = 0
@@ -60,9 +60,11 @@ class args(object):
     noise_dim = 32
 
     # Architecture params - defaults correspond to Table 3a) of [1]
+    mv_channels = 128
     latent_channels = 220
-    n_residual_blocks = 9           # Authors use 9 blocks, performance saturates at 5
+    n_residual_blocks = 6           # Authors use 9 blocks, performance saturates at 5
     lambda_B = 2**(-4)              # Loose rate
+    warp_coeff = 0.01
     k_M = 0.075 * 2**(-5)           # Distortion
     k_P = 1.                        # Perceptual loss
     beta = 0.15                     # Generator loss
@@ -72,7 +74,7 @@ class args(object):
     
     # Shapes
     crop_size = 256
-    image_dims = (6,256,256)
+    image_dims = (3,256,256)
     latent_dims = (latent_channels,16,16)
     
     # Optimizer params
