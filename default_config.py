@@ -74,7 +74,7 @@ class args(object):
     
     # Shapes
     crop_size = 256
-    image_dims = (3,256,256)
+    image_dims = (6,256,256)
     latent_dims = (latent_channels,16,16)
     
     # Optimizer params

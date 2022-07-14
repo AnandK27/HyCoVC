@@ -145,10 +145,9 @@ class Model(nn.Module):
 
 
         mvinfo = self.motion_vector(x, ref)
-        x_res = x - mvinfo.pred
 
         # Encoder forward pass
-        y = self.Encoder(x_res)
+        y = self.Encoder(x, mvinfo.pred)
 
         if self.model_mode == ModelModes.EVALUATION and (self.training is False):
             n_hyperencoder_downsamples = self.Hyperprior.analysis_net.n_downsampling_layers
@@ -162,9 +161,8 @@ class Model(nn.Module):
         total_qbpp = hyperinfo.total_qbpp
 
         # Use quantized latents as input to G
-        recon_res = self.Generator(latents_quantized)
+        reconstruction = self.Generator(latents_quantized, mvinfo.pred)
 
-        reconstruction = recon_res + mvinfo.pred
 
         
         if self.args.normalize_input_image is True:

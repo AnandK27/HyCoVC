@@ -5,7 +5,6 @@ import numpy as np
 
 from src.normalisation import channel, instance
 
-
 class Encoder(nn.Module):
     def __init__(self, image_dims, batch_size, activation='relu', C=220,
                  channel_norm=True):
@@ -29,7 +28,7 @@ class Encoder(nn.Module):
         filters = (60, 120, 240, 480, 960)
 
         # Images downscaled to 500 x 1000 + randomly cropped to 256 x 256
-        im_channels = image_dims[0]
+        im_channels = int(image_dims[0]/2)
         # assert image_dims == (im_channels, 256, 256), 'Crop image to 256 x 256!'
 
         # Layer / normalization options
@@ -101,12 +100,29 @@ class Encoder(nn.Module):
             nn.Conv2d(filters[4], C, kernel_dim, stride=1),
         )
 
+         # (256,256) -> (256,256), with implicit padding
+        self.conv_block_ref = nn.Sequential(
+            self.pre_pad,
+            nn.Conv2d(im_channels*2, filters[0], kernel_size=(7,7), stride=1),
+            self.interlayer_norm(filters[0], **norm_kwargs),
+            self.activation(),
+        )
+
+
         
                 
-    def forward(self, x):
+    def forward(self, x, ref):
+        ref = torch.cat((x, ref), 1)
+        ref = self.conv_block_ref(ref)
+        ref = self.conv_block2(ref)
+        ref = self.conv_block3(ref)
+
         x = self.conv_block1(x)
         x = self.conv_block2(x)
         x = self.conv_block3(x)
+        
+        x = torch.subtract(x, ref)
+
         x = self.conv_block4(x)
         x = self.conv_block5(x)
         out = self.conv_block_out(x)
@@ -115,11 +131,9 @@ class Encoder(nn.Module):
 
 if __name__ == "__main__":
     B = 2
-    C = 3
+    C = 7
     print('Image 1')
-    x = torch.randn((B,3,1080,1920))
-    y = x
+    x = torch.randn((B,3,256,256))
     x_dims = tuple(x.size())
     E = Encoder(image_dims=x_dims[1:], batch_size=B, C=C)
-    print(E.forward(x, y).shape)
 

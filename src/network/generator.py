@@ -43,6 +43,47 @@ class ResidualBlock(nn.Module):
 
         return torch.add(res, identity_map)
 
+class ResidualBlock_by_2(nn.Module):
+    def __init__(self, input_dims, kernel_size=3, stride=1, 
+                 channel_norm=True, activation='relu'):
+        """
+        input_dims: Dimension of input tensor (B,C,H,W)
+        """
+        super(ResidualBlock_by_2, self).__init__()
+
+        self.activation = getattr(F, activation)
+        in_channels = input_dims[1]
+        ou_channels = int(in_channels/2)
+        norm_kwargs = dict(momentum=0.1, affine=True, track_running_stats=False)
+
+        if channel_norm is True:
+            self.interlayer_norm = channel.ChannelNorm2D_wrap
+        else:
+            self.interlayer_norm = instance.InstanceNorm2D_wrap
+
+        pad_size = int((kernel_size-1)/2)
+        self.pad = nn.ReflectionPad2d(pad_size)
+        self.conv1 = nn.Conv2d(in_channels, in_channels, kernel_size, stride=stride)
+        self.conv2 = nn.Conv2d(in_channels, ou_channels, kernel_size, stride=stride)
+        self.norm1 = self.interlayer_norm(in_channels, **norm_kwargs)
+        self.norm2 = self.interlayer_norm(ou_channels, **norm_kwargs)
+
+    def forward(self, x):
+        identity_map = x
+        identity_map = self.pad(identity_map)
+        identity_map = self.conv2(identity_map)
+
+        res = self.pad(x)
+        res = self.conv1(res)
+        res = self.norm1(res) 
+        res = self.activation(res)
+
+        res = self.pad(res)
+        res = self.conv2(res)
+        res = self.norm2(res)
+
+        return torch.add(res, identity_map)        
+
 class Generator(nn.Module):
     def __init__(self, input_dims, batch_size, C=16, activation='relu',
                  n_residual_blocks=8, channel_norm=True, sample_noise=False,
@@ -71,8 +112,11 @@ class Generator(nn.Module):
         self.sample_noise = sample_noise
         self.noise_dim = noise_dim
 
+        im_channels = 3
+
         # Layer / normalization options
         cnn_kwargs = dict(stride=2, padding=1, output_padding=1)
+        cnn_ref_kwargs = dict(stride=2, padding=1, padding_mode='reflect')
         norm_kwargs = dict(momentum=0.1, affine=True, track_running_stats=False)
         activation_d = dict(relu='ReLU', elu='ELU', leaky_relu='LeakyReLU')
         self.activation = getattr(nn, activation_d[activation])  # (leaky_relu, relu, elu)
@@ -141,9 +185,38 @@ class Generator(nn.Module):
             nn.Conv2d(filters[-1], 3, kernel_size=(7,7), stride=1),
         )
 
+        # (256,256) -> (256,256), with implicit padding
+        self.conv_block1 = nn.Sequential(
+            self.pre_pad,
+            nn.Conv2d(im_channels, filters[4], kernel_size=(7,7), stride=1),
+            self.interlayer_norm(filters[4], **norm_kwargs),
+            self.activation(),
+        )
 
-    def forward(self, x):
+        # (256,256) -> (128,128)
+        self.conv_block2 = nn.Sequential(
+            self.asymmetric_pad,
+            nn.Conv2d(filters[4], filters[3], kernel_dim, **cnn_ref_kwargs),
+            self.interlayer_norm(filters[3], **norm_kwargs),
+            self.activation(),
+        )
+
+        # (128,128) -> (64,64)
+        self.conv_block3 = nn.Sequential(
+            self.asymmetric_pad,
+            nn.Conv2d(filters[3], filters[2], kernel_dim, **cnn_ref_kwargs),
+            self.interlayer_norm(filters[2], **norm_kwargs),
+            self.activation(),
+        )
+
+        self.res_block = ResidualBlock_by_2(input_dims=(batch_size, filters[2]*2, H0*4, W0*4), 
+                channel_norm=channel_norm, activation=activation)
+
+
+
+    def forward(self, x, ref):
         
+       
         head = self.conv_block_init(x)
 
         if self.sample_noise is True:
@@ -161,6 +234,14 @@ class Generator(nn.Module):
         x += head
         x = self.upconv_block1(x)
         x = self.upconv_block2(x)
+
+        ref = self.conv_block1(ref)
+        ref = self.conv_block2(ref)
+        ref = self.conv_block3(ref)
+
+        inter = torch.cat((x,ref), 1)
+        x = torch.add(x,self.res_block(inter))
+
         x = self.upconv_block3(x)
         x = self.upconv_block4(x)
         out = self.conv_block_out(x)
@@ -173,8 +254,9 @@ if __name__ == "__main__":
 
     C = 8
     y = torch.randn([3,C,16,16])
+    ref = torch.randn([3,3,256,256])
     y_dims = y.size()
     G = Generator(y_dims[1:], y_dims[0], C=C, n_residual_blocks=3, sample_noise=True)
 
-    x_hat = G(y)
+    x_hat = G(y, ref)
     print(x_hat.size())
