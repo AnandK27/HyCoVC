@@ -400,8 +400,8 @@ class Vimeo(BaseDataset):
 
         input_img = input_img.convert('RGB')
         ref_img = ref_img.convert('RGB')
-        ref_img += (0.1**0.5)*np.random.randn(*np.array(ref_img).shape)
-        ref_img = PIL.Image.fromarray(ref_img, 'RGB')
+        ref_img = ref_img + np.random.uniform(low=-0.5, high=0.5, size=np.array(ref_img).shape)
+        ref_img = PIL.Image.fromarray(ref_img.astype('uint8'), 'RGB')
         W, H = input_img.size
         bpp = os.path.getsize(input_path) * 8. /(H*W)
 
@@ -479,7 +479,7 @@ class UVG(BaseDataset):
         input_img = input_img.convert('RGB')
         ref_img = ref_img.convert('RGB')
         ref_img += (0.1**0.5)*np.random.randn(*np.array(ref_img).shape)
-        ref_img = PIL.Image.fromarray(ref_img, 'RGB')
+        ref_img = PIL.Image.fromarray(ref_img.astype('uint8'), 'RGB')
         W, H = input_img.size
         bpp = os.path.getsize(input_path) * 8. /(H*W)
 

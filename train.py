@@ -102,10 +102,8 @@ def train(args, model, train_loader, test_loader, device, logger, optimizers):
     storage, storage_test = model.storage_train, model.storage_test
 
     amortization_opt, hyperlatent_likelihood_opt = optimizers['amort'], optimizers['hyper']
-    if model.use_discriminator is True:
-        disc_opt = optimizers['disc']
-
-
+        
+    model.use_discriminator = False
     for epoch in trange(args.n_epochs, desc='Epoch'):
 
         epoch_loss, epoch_test_loss = [], []  
@@ -113,6 +111,10 @@ def train(args, model, train_loader, test_loader, device, logger, optimizers):
         
         if epoch > 0:
             ckpt_path = utils.save_model(model, optimizers, mean_epoch_loss, epoch, device, args=args, logger=logger)
+        
+        if epoch == 1:
+            model.use_discriminator = True
+            optimizers['disc'] = disc_opt
         
         model.train()
 
@@ -184,6 +186,8 @@ def train(args, model, train_loader, test_loader, device, logger, optimizers):
 
                 if model.step_counter > args.n_steps:
                     logger.info('Reached step limit [args.n_steps = {}]'.format(args.n_steps))
+                    break
+                if model.step_counter > 1000 and epoch == 0:
                     break
 
             if (idx % args.save_interval == 1) and (idx > args.save_interval):

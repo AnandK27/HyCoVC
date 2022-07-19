@@ -88,7 +88,7 @@ class Model(nn.Module):
             and (self.model_mode != ModelModes.EVALUATION)
         )
 
-        if self.use_discriminator is True:
+        if self.model_mode != ModelModes.EVALUATION:
             assert self.args.discriminator_steps > 0, 'Must specify nonzero training steps for D!'
             self.discriminator_steps = self.args.discriminator_steps
             self.logger.info('GAN mode enabled. Training discriminator for {} steps.'.format(
