@@ -44,7 +44,7 @@ class args(object):
     silent = True
     n_epochs = 8
     n_steps = 1e6
-    batch_size = 4
+    batch_size = 3
     log_interval = 1000
     save_interval = 50000
     gpu = 0
@@ -89,7 +89,7 @@ class args(object):
 
     # match target rate to lambda_A coefficient
     regime = 'low'  # -> 0.14
-    target_rate_map = dict(low=0.14, med=0.3, high=0.45)
+    target_rate_map = dict(low=0.2, med=0.4, high=0.55)
     lambda_A_map = dict(low=2**1, med=2**0, high=2**(-1))
     target_rate = target_rate_map[regime]
     lambda_A = lambda_A_map[regime]

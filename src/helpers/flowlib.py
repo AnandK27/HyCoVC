@@ -17,6 +17,19 @@ UNKNOWN_FLOW_THRESH = 1e7
 SMALLFLOW = 0.0
 LARGEFLOW = 1e8
 
+def ycbcr2rgb(im):
+    rgb = np.empty_like(im)
+    y   = im[:,:,0]
+    cb  = im[:,:,1] - 128
+    cr  = im[:,:,2] - 128
+    # R
+    rgb[:,:,0] = y + 1.402 * cr
+    # G
+    rgb[:,:,1] = y - .34414 * cb - .71414 * cr
+    # B
+    rgb[:,:,2] = y + 1.772 * cb
+    return np.uint8(rgb)
+
 """
 =============
 Flow Section
@@ -277,7 +290,7 @@ def flow_to_image(flow, display=False, maxrad = None):
     idx = np.repeat(idxUnknow[:, :, np.newaxis], 3, axis=2)
     img[idx] = 0
 
-    return np.uint8(img), maxrad
+    return ycbcr2rgb(img)
 
 
 def evaluate_flow_file(gt, pred):
@@ -529,3 +542,22 @@ def save_flow_image(flow, image_file):
     flow_img = flow_to_image(flow)
     img_out = Image.fromarray(flow_img)
     img_out.save(image_file)
+
+def flow_to_image_array(flow_arr):
+    """
+    save flow visualization into image file
+    :param flow: optical flow data
+    :param flow_fil
+    :return: None
+    """
+    img_arr = []
+    for i in range(len(flow_arr)):
+
+        flow_img = flow_to_image(flow_arr[i])
+        img_arr.append(flow_img)
+
+    img_arr = np.array(img_arr)
+    img_arr = img_arr.transpose((0, 3, 1, 2))
+    
+    
+    return img_arr

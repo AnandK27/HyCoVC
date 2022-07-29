@@ -216,7 +216,7 @@ class Generator(nn.Module):
 
     def forward(self, x, ref):
         
-       
+
         head = self.conv_block_init(x)
 
         if self.sample_noise is True:
@@ -247,6 +247,39 @@ class Generator(nn.Module):
         out = self.conv_block_out(x)
 
         return out
+
+    # def forward(self, x, ref):
+        
+       
+    #     head = self.conv_block_init(x)
+
+    #     if self.sample_noise is True:
+    #         B, C, H, W = tuple(head.size())
+    #         z = torch.randn((B, self.noise_dim, H, W)).to(head)
+    #         head = torch.cat((head,z), dim=1)
+
+    #     for m in range(self.n_residual_blocks):
+    #         resblock_m = getattr(self, f'resblock_{str(m)}')
+    #         if m == 0:
+    #             x = resblock_m(head)
+    #         else:
+    #             x = resblock_m(x)
+        
+    #     x += head
+    #     x = self.upconv_block1(x)
+    #     x = self.upconv_block2(x)
+
+    #     ref = self.conv_block1(ref)
+    #     ref = self.conv_block2(ref)
+    #     ref = self.conv_block3(ref)
+
+    #     x = torch.cat((x,ref), 1)
+    #     x = self.res_block(x)
+    #     x = self.upconv_block3(x)
+    #     x = self.upconv_block4(x)
+    #     out = self.conv_block_out(x)
+
+    #     return out
 
 
 

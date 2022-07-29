@@ -72,6 +72,9 @@ def test(args, model, epoch, idx, data, test_data, test_bpp, device, epoch_test_
         utils.save_images(train_writer, model.step_counter, intermediates.input_image, intermediates.reconstruction,
             fname=os.path.join(args.figures_save, 'recon_epoch{}_idx{}_TRAIN_{:%Y_%m_%d_%H:%M}.jpg'.format(epoch, idx, datetime.datetime.now())))
 
+        utils.save_everything(train_writer, model.step_counter, intermediates.input_image, intermediates.reconstruction, intermediates.pred, intermediates.mv_upsample,
+            device, fname=os.path.join(args.figures_save, 'allsteps_epoch{}_idx{}_TRAIN_{:%Y_%m_%d_%H:%M}.jpg'.format(epoch, idx, datetime.datetime.now())))
+
         test_inp = test_data[0].to(device, dtype=torch.float)
         test_ref = test_data[1].to(device, dtype=torch.float)
 

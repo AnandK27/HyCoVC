@@ -265,7 +265,7 @@ class Warp_net(nn.Module):
         super(Warp_net, self).__init__()
         channelnum = 64
 
-        self.feature_ext = nn.Conv2d(6, channelnum, 3, padding=1)# feature_ext
+        self.feature_ext = nn.Conv2d(8, channelnum, 3, padding=1)# feature_ext
         self.f_relu = nn.ReLU()
         torch.nn.init.xavier_uniform_(self.feature_ext.weight.data)
         torch.nn.init.constant_(self.feature_ext.bias.data, 0.0)

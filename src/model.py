@@ -29,7 +29,8 @@ Intermediates = namedtuple("Intermediates",
      "n_bpp",                   # Differential entropy estimate.
      "q_bpp",
      "pred",
-     "warpframe"])                  # Shannon entropy estimate.
+     "warpframe",
+     "mv_upsample"])                  # Shannon entropy estimate.
 
 Disc_out= namedtuple("disc_out",
     ["D_real", "D_gen", "D_real_logits", "D_gen_logits"])
@@ -173,7 +174,7 @@ class Model(nn.Module):
             reconstruction = reconstruction[:, :, :image_dims[1], :image_dims[2]]
         
         intermediates = Intermediates(x, reconstruction, latents_quantized, 
-            total_nbpp + mvinfo.mv_z_nbpp , total_qbpp + mvinfo.mv_z_qbpp, mvinfo.pred, mvinfo.warpframe)
+            total_nbpp , total_qbpp , mvinfo.pred, mvinfo.warpframe, mvinfo.mv)
 
         return intermediates, hyperinfo
 

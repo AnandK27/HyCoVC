@@ -3,10 +3,12 @@ import torch.nn as nn
 import torch.nn.functional as F
 import numpy as np
 from collections import namedtuple
+import math
 
-from src.helpers.endecoder import ME_Spynet, Warp_net, flow_warp
+from src.helpers.endecoder import Warp_net, flow_warp
 from src.network.mv import Analysis_mv_net
 from src.network.mv import Synthesis_mv_net
+from src.helpers.spynet import Spynet
 from src.helpers import maths
 from src.compression import mv_model
 
@@ -21,7 +23,7 @@ lower_bound_toward = maths.LowerBoundToward.apply
 MVInfo = namedtuple(
     "MVInfo",
     "pred "
-    "mv_z_nbpp mv_z_qbpp warpframe",
+    "mv_z_nbpp mv_z_qbpp warpframe mv_upsample mv",
 )
 
 
@@ -126,7 +128,7 @@ class MVNet(CodingModel):
     def __init__(self, mv_channels = 128, likelihood_type='gaussian', entropy_code = True, vectorize_encoding = True, block_encode = True):
         super(MVNet, self).__init__()
         self.mv_channels = mv_channels
-        self.opticFlow = ME_Spynet()
+        self.opticFlow = Spynet().cuda()
         self.mvEncoder = Analysis_mv_net(mv_channels)
         self.mvDecoder = Synthesis_mv_net(mv_channels)
         self.warpnet = Warp_net()
@@ -149,20 +151,37 @@ class MVNet(CodingModel):
 
 
     def forward(self, x, ref):
-        est_mv = self.opticFlow(x, ref)
-        mv_z = self.mvEncoder(est_mv)
+
+        assert(x.shape[1] == ref.shape[1])
+        assert(x.shape[2] == ref.shape[2])
+
+        intWidth = x.shape[3]
+        intHeight = x.shape[2]
+
+        intPreprocessedWidth = int(math.floor(math.ceil(intWidth / 32.0) * 32.0))
+        intPreprocessedHeight = int(math.floor(math.ceil(intHeight / 32.0) * 32.0))
+
+        tenPreprocessedOne = torch.nn.functional.interpolate(input=x, size=(intPreprocessedHeight, intPreprocessedWidth), mode='bilinear', align_corners=False)
+        tenPreprocessedTwo = torch.nn.functional.interpolate(input=ref, size=(intPreprocessedHeight, intPreprocessedWidth), mode='bilinear', align_corners=False)
+
+        tenFlow = torch.nn.functional.interpolate(input = self.opticFlow(tenPreprocessedOne, tenPreprocessedTwo), size=(intHeight, intWidth), mode='bilinear', align_corners=False)
+
+        tenFlow[:, 0, :, :] *= float(intWidth) / float(intPreprocessedWidth)
+        tenFlow[:, 1, :, :] *= float(intHeight) / float(intPreprocessedHeight)
+
+        mv_z = self.mvEncoder(tenFlow)
         batch_shape = x.size(0)
 
         noisy_mv_z = self._quantize(mv_z, mode='noise')
         noisy_mv_z_likelihood = self.mv_likelihood(noisy_mv_z)
         noisy_mv_z_bits, noisy_mv_z_bpp = self._estimate_entropy(
-            noisy_mv_z_likelihood, spatial_shape=est_mv.size()[2:])
+            noisy_mv_z_likelihood, spatial_shape=tenFlow.size()[2:])
 
         # Discrete entropy, mv_z
         quantized_mv_z = self._quantize(mv_z, mode='quantize')
         quantized_mv_z_likelihood = self.mv_likelihood(quantized_mv_z)
         quantized_mv_z_bits, quantized_mv_z_bpp = self._estimate_entropy(
-            quantized_mv_z_likelihood, spatial_shape=est_mv.size()[2:])
+            quantized_mv_z_likelihood, spatial_shape=tenFlow.size()[2:])
 
         if self.training is True:
             mv_z_decoded = noisy_mv_z
@@ -171,19 +190,22 @@ class MVNet(CodingModel):
 
         mv_upsample = self.mvDecoder(mv_z_decoded)
 
-        prediction, warpframe = self.motioncompensation(ref, mv_upsample)
+        prediction, warpframe = self.motioncompensation(ref, tenFlow)
 
         info = MVInfo(
             pred=prediction,
             mv_z_nbpp=noisy_mv_z_bpp,
             mv_z_qbpp=quantized_mv_z_bpp,
-            warpframe=warpframe
+            warpframe=warpframe,
+            mv_upsample=mv_upsample,
+            mv = tenFlow
         )
         
         return info
 
     def motioncompensation(self, ref, mv):
         warpframe = flow_warp(ref, mv)
-        inputfeature = torch.cat((warpframe, ref), 1)
-        prediction = self.warpnet(inputfeature) + warpframe
+        assert ref.shape[2] == mv.shape[2] and ref.shape[3] == mv.shape[3], f"{mv.shape[0]} {mv.shape[1]} {mv.shape[2]} {mv.shape[3]}"
+        inputfeature = torch.cat((warpframe, ref, mv), 1)
+        prediction = self.warpnet(inputfeature)
         return prediction, warpframe

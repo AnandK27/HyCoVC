@@ -11,6 +11,7 @@ import itertools
 
 from collections import OrderedDict
 from torchvision.utils import save_image
+from src.helpers.flowlib import flow_to_image_array
 
 META_FILENAME = "metadata.json"
 
@@ -372,6 +373,15 @@ def log(model, storage, epoch, idx, mean_epoch_loss, current_loss, best_loss, st
         report_f("G Loss: {:.3f} | D Loss: {:.3f} | D(gen): {:.3f} | D(real): {:.3f}".format(storage['gen_loss'][-1],
                 storage['disc_loss'][-1], storage['D_gen'][-1], storage['D_real'][-1]))
     return best_loss
+
+
+
+def save_everything(writer, step, real, decoded, pred, mv_upsample, device, fname):
+
+    mv_arr = flow_to_image_array(mv_upsample.cpu().detach().numpy())
+    imgs = torch.cat((real, torch.tensor(mv_arr).to(device, dtype=torch.float), pred, decoded), dim=0)
+    save_image(imgs, fname, nrow=3, normalize=True, scale_each=True)
+    writer.add_images('gen_recon', imgs, step)
 
 
 def save_images(writer, step, real, decoded, fname):
