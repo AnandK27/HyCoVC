@@ -5,10 +5,12 @@ import numpy as np
 from collections import namedtuple
 import math
 
-from src.helpers.endecoder import Warp_net, flow_warp
-from src.network.mv import Analysis_mv_net
-from src.network.mv import Synthesis_mv_net
-from src.helpers.spynet import Spynet
+# from src.helpers.endecoder import Warp_net, flow_warp
+# from src.network.mv import Analysis_mv_net
+# from src.network.mv import Synthesis_mv_net
+from src.helpers.flownets import PWCNet
+from src.helpers.refinement import Refinement
+from src.helpers.sampler import Resampler
 from src.helpers import maths
 from src.compression import mv_model
 
@@ -128,25 +130,26 @@ class MVNet(CodingModel):
     def __init__(self, mv_channels = 128, likelihood_type='gaussian', entropy_code = True, vectorize_encoding = True, block_encode = True):
         super(MVNet, self).__init__()
         self.mv_channels = mv_channels
-        self.opticFlow = Spynet().cuda()
-        self.mvEncoder = Analysis_mv_net(mv_channels)
-        self.mvDecoder = Synthesis_mv_net(mv_channels)
-        self.warpnet = Warp_net()
+        self.opticFlow = PWCNet().cuda()
+        # self.mvEncoder = Analysis_mv_net(mv_channels)
+        # self.mvDecoder = Synthesis_mv_net(mv_channels)
+        self.warpnet = Resampler().cuda()
+        self.refinement = Refinement(6, 64, out_channels=3).cuda()
 
-        self.mv_likelihood = mv_model.MVDensity(n_channels = mv_channels)
+        # self.mv_likelihood = mv_model.MVDensity(n_channels = mv_channels)
 
-        if likelihood_type == 'gaussian':
-            self.standardized_CDF = maths.standardized_CDF_gaussian
-        elif likelihood_type == 'logistic':
-            self.standardized_CDF = maths.standardized_CDF_logistic
-        else:
-            raise ValueError('Unknown likelihood model: {}'.format(likelihood_type))
+        # if likelihood_type == 'gaussian':
+        #     self.standardized_CDF = maths.standardized_CDF_gaussian
+        # elif likelihood_type == 'logistic':
+        #     self.standardized_CDF = maths.standardized_CDF_logistic
+        # else:
+        #     raise ValueError('Unknown likelihood model: {}'.format(likelihood_type))
 
-        if entropy_code is True:
-            print('Building prior probability tables...')
-            self.MV_entropy_model = mv_model.MVEntropyModel(distribution=self.mv_likelihood)
-            self.vectorize_encoding = vectorize_encoding
-            self.block_encode = block_encode 
+        # if entropy_code is True:
+        #     print('Building prior probability tables...')
+        #     self.MV_entropy_model = mv_model.MVEntropyModel(distribution=self.mv_likelihood)
+        #     self.vectorize_encoding = vectorize_encoding
+        #     self.block_encode = block_encode 
 
 
 
@@ -155,49 +158,43 @@ class MVNet(CodingModel):
         assert(x.shape[1] == ref.shape[1])
         assert(x.shape[2] == ref.shape[2])
 
-        intWidth = x.shape[3]
-        intHeight = x.shape[2]
+        tenFlow = self.opticFlow(ref, x)
 
-        intPreprocessedWidth = int(math.floor(math.ceil(intWidth / 32.0) * 32.0))
-        intPreprocessedHeight = int(math.floor(math.ceil(intHeight / 32.0) * 32.0))
 
-        tenPreprocessedOne = torch.nn.functional.interpolate(input=x, size=(intPreprocessedHeight, intPreprocessedWidth), mode='bilinear', align_corners=False)
-        tenPreprocessedTwo = torch.nn.functional.interpolate(input=ref, size=(intPreprocessedHeight, intPreprocessedWidth), mode='bilinear', align_corners=False)
+        
 
-        tenFlow = torch.nn.functional.interpolate(input = self.opticFlow(tenPreprocessedOne, tenPreprocessedTwo), size=(intHeight, intWidth), mode='bilinear', align_corners=False)
+        # mv_z = self.mvEncoder(tenFlow)
+        # batch_shape = x.size(0)
 
-        tenFlow[:, 0, :, :] *= float(intWidth) / float(intPreprocessedWidth)
-        tenFlow[:, 1, :, :] *= float(intHeight) / float(intPreprocessedHeight)
+        # noisy_mv_z = self._quantize(mv_z, mode='noise')
+        # noisy_mv_z_likelihood = self.mv_likelihood(noisy_mv_z)
+        # noisy_mv_z_bits, noisy_mv_z_bpp = self._estimate_entropy(
+        #     noisy_mv_z_likelihood, spatial_shape=tenFlow.size()[2:])
 
-        mv_z = self.mvEncoder(tenFlow)
-        batch_shape = x.size(0)
+        # # Discrete entropy, mv_z
+        # quantized_mv_z = self._quantize(mv_z, mode='quantize')
+        # quantized_mv_z_likelihood = self.mv_likelihood(quantized_mv_z)
+        # quantized_mv_z_bits, quantized_mv_z_bpp = self._estimate_entropy(
+        #     quantized_mv_z_likelihood, spatial_shape=tenFlow.size()[2:])
 
-        noisy_mv_z = self._quantize(mv_z, mode='noise')
-        noisy_mv_z_likelihood = self.mv_likelihood(noisy_mv_z)
-        noisy_mv_z_bits, noisy_mv_z_bpp = self._estimate_entropy(
-            noisy_mv_z_likelihood, spatial_shape=tenFlow.size()[2:])
+        # if self.training is True:
+        #     mv_z_decoded = noisy_mv_z
+        # else:
+        #     mv_z_decoded = quantized_mv_z
 
-        # Discrete entropy, mv_z
-        quantized_mv_z = self._quantize(mv_z, mode='quantize')
-        quantized_mv_z_likelihood = self.mv_likelihood(quantized_mv_z)
-        quantized_mv_z_bits, quantized_mv_z_bpp = self._estimate_entropy(
-            quantized_mv_z_likelihood, spatial_shape=tenFlow.size()[2:])
+        # mv_upsample = self.mvDecoder(mv_z_decoded)
 
-        if self.training is True:
-            mv_z_decoded = noisy_mv_z
-        else:
-            mv_z_decoded = quantized_mv_z
+        warpframe = self.warpnet(ref, tenFlow)
 
-        mv_upsample = self.mvDecoder(mv_z_decoded)
+        prediction = self.refinement(ref, warpframe)
 
-        prediction, warpframe = self.motioncompensation(ref, tenFlow)
 
         info = MVInfo(
             pred=prediction,
-            mv_z_nbpp=noisy_mv_z_bpp,
-            mv_z_qbpp=quantized_mv_z_bpp,
+            mv_z_nbpp=0,
+            mv_z_qbpp=0,
             warpframe=warpframe,
-            mv_upsample=mv_upsample,
+            mv_upsample=0,
             mv = tenFlow
         )
         
