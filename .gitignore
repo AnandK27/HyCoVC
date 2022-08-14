@@ -52,6 +52,7 @@ MANIFEST
 main/
 vimeo/
 flow_pretrain_np/
+pretrained/
 
 # PyInstaller
 #  Usually these files are written by a python script from a template
