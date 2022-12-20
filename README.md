@@ -6,7 +6,7 @@ Each branch consists of implementation for different variation of the network na
 ## [Report](https://github.com/AnandK27/HyCoVC/tree/HyCoVC/Report.pdf)
 
 ## Architecture
-<img title = 'baseline-architecture' src='baseline.jpg' alt='baseline-architecture' />
+<img title = 'hycovc-architecture' src='hycovc.jpg' alt='hycovc-architecture' />
 
 # Usage
 
