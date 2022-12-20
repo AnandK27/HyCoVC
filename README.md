@@ -3,6 +3,11 @@
 Pytorch implementation of Hyperprior Contextual Video Compression Network using Variational Auto Encoder (VAE) and Generative Adversarial Networks (GANs).
 Each branch consists of implementation for different variation of the network namely [__baseline__](https://github.com/AnandK27/HyCoVC/tree/baseline), [__context__](https://github.com/AnandK27/HyCoVC/tree/context), [__PWC__](https://github.com/AnandK27/HyCoVC/tree/PWC) and [__HyCoVC__](https://github.com/AnandK27/HyCoVC/tree/HyCoVC)
 
+##[Report](https://github.com/AnandK27/HyCoVC/tree/HyCoVC/Report.pdf)
+
+## Architecture
+<img title = 'baseline-architecture' src='baseline.jpg' alt='baseline-architecture' />
+
 # Usage
 
 ## Training
