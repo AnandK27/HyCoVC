@@ -1,180 +1,74 @@
-# high-fidelity-generative-compression
+# Pyramid, Warping & Cost volume Video Compression (PWC-VC)
 
-Pytorch implementation of the paper ["High-Fidelity Generative Image Compression" by Mentzer et. al.](https://hific.github.io/). This repo also provides general utilities for lossless compression that interface with Pytorch. For the official (TensorFlow) code release, see the [TensorFlow compression
-repo](https://github.com/tensorflow/compression/tree/master/models/hific).
+Pytorch implementation of Pyramid, Warping & Cost volume Video Compression (PWC-VC) Network using Variational Auto Encoder (VAE) and Generative Adversarial Networks (GANs).
+Each branch consists of implementation for different variation of the network namely [__baseline__](https://github.com/AnandK27/HyCoVC/tree/baseline), [__context__](https://github.com/AnandK27/HyCoVC/tree/context), [__PWC__](https://github.com/AnandK27/HyCoVC/tree/PWC) and [__HyCoVC__](https://github.com/AnandK27/HyCoVC/tree/HyCoVC)
 
-## About
+# Usage
 
-This repository defines a model for learnable image compression based on the paper ["High-Fidelity Generative Image Compression" (HIFIC) by Mentzer et. al.](https://hific.github.io/). The model is capable of compressing images of arbitrary spatial dimension and resolution up to two orders of magnitude in size, while maintaining perceptually similar reconstructions. Outputs tend to be more visually pleasing than standard image codecs operating at higher bitrates.
+## Training
 
-This repository also includes a partial port of the [Tensorflow Compression library](https://github.com/tensorflow/compression) - which provides general tools for neural image compression in Pytorch.
-
-[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/Justin-Tan/high-fidelity-generative-compression/blob/master/assets/HiFIC_torch_colab_demo.ipynb)
-
-You can play with a [demonstration of the model in Colab](https://colab.research.google.com/github/Justin-Tan/high-fidelity-generative-compression/blob/master/assets/HiFIC_torch_colab_demo.ipynb), where you can upload and compress your own images.
-
-## Example
-
-Original | HiFIC
-:-------------------------:|:-------------------------:
-![guess](assets/originals/CLIC2020_5.png) | ![guess](assets/hific/CLIC2020_5_RECON_0.160bpp.png)
-
-```python
-Original: (6.01 bpp - 2100 kB) | HiFIC: (0.160 bpp - 56 kB). Ratio: 37.5.
-```
-
-The image shown is an out-of-sample instance from the CLIC-2020 dataset. The HiFIC image is obtained by reconstruction via a learned model provided below.
-
-Note that the learned model was not adapted in any way for evaluation on this image. More sample outputs from this model can be found at the end of the README and in [EXAMPLES.md](assets/EXAMPLES.md).
-
-## Note
-
-The generator is trained to achieve realistic and not exact reconstruction. It may synthesize certain portions of a given image to remove artifacts associated with lossy compression. Therefore, in theory **images which are compressed and decoded may be arbitrarily different from the input**. This precludes usage for sensitive applications. An important caveat from the authors is reproduced here: 
-
-> "_Therefore, we emphasize that our method is not suitable for sensitive image contents, such as, e.g., storing medical images, or important documents._" 
-
-## Usage
-
-* Install Pytorch nightly and dependencies from [https://pytorch.org/](https://pytorch.org/). Then install other requirements:
+* Download a large (> 100,000) dataset of diverse color images. We found that using 1-2 training divisions of the [OpenImages](https://storage.googleapis.com/openimages/web/index.html) dataset was able to produce satisfactory results on arbitrary images. [Fabian Mentzer's L3C Repo](https://github.com/fab-jul/L3C-PyTorch/) provides utility functions for downloading and preprocessing OpenImages (the trained models did not use this exact split). Add the dataset path under the `DatasetPaths` class in `default_config.py`. Check default config/command line arguments:
 
 ```bash
-pip install -r requirements.txt
+vim default_config.py
+python3 train.py -h
 ```
 
-* Clone this repository, `cd` in:
-
-```bash
-git clone https://github.com/Justin-Tan/high-fidelity-generative-compression.git
-cd high-fidelity-generative-compression
-```
-
-To check if your setup is working, run `python3 -m src.model` in root. Usage instructions can be found in the [user's guide](src/README.md).
-
-### Training
-
-* Download a large (> 100,000) dataset of diverse color images. We found that using 1-2 training divisions of the [OpenImages](https://storage.googleapis.com/openimages/web/index.html) dataset was able to produce satisfactory results on arbitrary images. Add the dataset path under the `DatasetPaths` class in `default_config.py`.
-
-* For best results, as described in the paper, train an initial base model using the rate-distortion loss only, together with the hyperprior model, e.g. to target low bitrates:
+* For best results, train an initial base model using the rate-distortion loss only, together with the hyperprior model, e.g. to target low bitrates:
 
 ```bash
 # Train initial autoencoding model
 python3 train.py --model_type compression --regime low --n_steps 1e6
 ```
 
-* Then use the checkpoint of the trained base model to 'warmstart' the GAN architecture. Please see the [user's guide](src/README.md) for more detailed instructions.
+* Then use the checkpoint of the trained base model to 'warmstart' the GAN architecture. Training the generator and discriminator from scratch was found to result in unstable training, but YMMV.
 
 ```bash
 # Train using full generator-discriminator loss
 python3 train.py --model_type compression_gan --regime low --n_steps 1e6 --warmstart --ckpt path/to/base/checkpoint
 ```
 
-### Compression
+* Training after the warmstart for 2e5 steps using a batch size of 16 was sufficient to get reasonable results at sub-0.2 `bpp` per validation image, on average, using the default config in the `low` regime. You can change regimes to `med` or `high` to tradeoff perceptual quality for increased bitrate.
 
-* `compress.py` will compress generic images using some specified model. This performs a forward pass through the model to yield the quantized latent representation, which is losslessly compressed using a vectorized ANS entropy coder and saved to disk in binary format. As the model architecture is fully convolutional, this will work with images of arbitrary size/resolution (subject to memory constraints).
+* Perceptual distortion metrics and `bpp` tend to decrease with a pareto-like distribution over training, so model quality can probably be significantly improved by training for an extremely large number of steps.
+
+* If you get out-of-memory errors, try, in decreasing order of priority:
+  * Decreasing the batch size (default 16).
+  * Decreasing the number of channels of the latent representation (`latent_channels`, default 220). You may be able to reduce this quite aggressively as the network is highly over-parameterized - many values of the latent representation are near-deterministic.
+  * Decreasing the number of channels used in the hyperprior.
+  * Reducing the number of residual blocks in the generator (`n_residual_blocks`, default 7).
+  * Training on smaller crops (`crop_size`, default `256 x 256`).
+
+These options can be accessed through `/default_config.py`. While a larger architecture does not hurt performance, as the network can allow certain representations to be deterministic at near-zero entropy rates, decreasing the architecture size will allow for faster encoding/decoding.
+
+* Logs for each experiment, including image reconstructions, are automatically created and periodically saved under `experiments/` with the appropriate name/timestamp. Metrics can be visualized via `tensorboard`:
 
 ```bash
+tensorboard --logdir experiments/my_experiment/tensorboard --port 2401
+```
+
+## Compression
+
+* `compress.py` will compress generic images under some specified entropy model. This performs a forward pass through the model to obtain the compressed representation, optionally coding the representation using a vectorized rANS entropy coder, which is then saved to disk in binary format. As the model architecture is fully convolutional, compression will work with images of arbitrary size/resolution (subject to memory constraints).
+
+* For message transmission, separate entropy models over the latents and hyperlatents must be instantiated and shared between sender and receiver.
+  * The sender computes the bottleneck tensor and calls the `compress()` method in `src/model.py` to obtain the compressed representation for transmission.
+  * The receiver calls the `decompress()` method in `src/model.py` to obtain the quantized bottleneck tensor, which is then passed through the generator to obtain the reconstruction.
+
+* The compression scheme in hierarchial in the sense that two 'levels' of information representing the latent and hyperlatent variables must be compressed and stored in the message, together with the shape of the encoded data.
+  * In addition to the compressed data, some metadata about the shape of the latent and hyperlatent representations must be stored for correct decoding when saving the binary format '`.hfc`' to disk, as shown in [`src/compression/compression_utils.load_compressed_format`](../src/compression/compression_utils.py).
+
+```bash
+# Check arguments
+python3 compress.py -h
+
+# Only get reconstructions
 python3 compress.py -i path/to/image/dir -ckpt path/to/trained/model --reconstruct
+
+# Save compressed format to disk
+python3 compress.py -i path/to/image/dir -ckpt path/to/trained/model --save
 ```
-The compressed format can be transmitted and decoded using the routines in `compress.py`. The [Colab demo](https://colab.research.google.com/github/Justin-Tan/high-fidelity-generative-compression/blob/master/assets/HiFIC_torch_colab_demo.ipynb) illustrates the decoding process.
 
-### Pretrained Models
+* Optionally, reconstructions can be generated by passing the `--reconstruct` flag. Decoding without executing the rANS coder takes around 2-3 seconds for ~megapixel images on GPU, but this can definitely be optimized. As evaluating the CDF under the hyperprior entropy model involves a series of matrix multiplications, decoding is significantly faster on GPU.
 
-* Pretrained model weights using the OpenImages dataset can be found below (~2 GB). The examples at the end of this readme were produced using the `HIFIC-med` model. The same models are also hosted in the following Zenodo repository: https://zenodo.org/record/4026003.
-
-| Target bitrate (bpp) | Weights | Training Instructions |
-| ----------- | -------------------------------- | ---------------------- |
-| 0.14 | [`HIFIC-low`](https://drive.google.com/open?id=1hfFTkZbs_VOBmXQ-M4bYEPejrD76lAY9) | <pre lang=bash>`python3 train.py --model_type compression_gan --regime low --warmstart -ckpt path/to/trained/model -nrb 9 -norm`</pre> |
-| 0.30 | [`HIFIC-med`](https://drive.google.com/open?id=1QNoX0AGKTBkthMJGPfQI0dT0_tnysYUb) | <pre lang=bash>`python3 train.py --model_type compression_gan --regime med --warmstart -ckpt path/to/trained/model --likelihood_type logistic`</pre> |
-| 0.45 | [`HIFIC-high`](https://drive.google.com/open?id=1BFYpvhVIA_Ek2QsHBbKnaBE8wn1GhFyA) | <pre lang=bash>`python3 train.py --model_type compression_gan --regime high --warmstart -ckpt path/to/trained/model -nrb 9 -norm`</pre> |
-
-## Examples
-
-The samples below are taken from the CLIC2020 dataset, external to the training set. The bitrate is reported in bits-per-pixel (`bpp`). The reconstructions are produced using the above `HIFIC-med` model (target bitrate `0.3 bpp`). It's interesting to try to guess which image is the original (images are saved as PNG for viewing - best viewed widescreen). You can expand the spoiler tags below each image to reveal the answer.
-
-For more examples see [EXAMPLES.md](assets/EXAMPLES.md). For even more examples see [this shared folder](https://drive.google.com/drive/folders/1lH1pTmekC1jL-gPi1fhEDuyjhfe5x6WG) (images within generated using the `HIFIC-low` model).
-
-A             |  B
-:-------------------------:|:-------------------------:
-![guess](assets/originals/CLIC2020_3.png) | ![guess](assets/hific/CLIC2020_3_RECON_0.269bpp.png)
-
-<details>
-
-  <summary>Image 1</summary>
-
-  ```python
-  Original: A (11.8 bpp) | HIFIC: B (0.269 bpp). Ratio: 43.8
-  ```
-
-</details>
-
-A             |  B
-:-------------------------:|:-------------------------:
-![guess](assets/originals/CLIC2020_20.png) | ![guess](assets/hific/CLIC2020_20_RECON_0.330bpp.png)
-
-<details>
-
-  <summary>Image 2</summary>
-
-  ```python
-  Original: A (14.6 bpp) | HIFIC: B (0.330 bpp). Ratio: 44.2
-  ```
-
-</details>
-
-A | B
-:-------------------------:|:-------------------------:
-![guess](assets/originals/CLIC2020_18.png) | ![guess](assets/hific/CLIC2020_18_RECON_0.209bpp.png)
-
-<details>
-
-  <summary>Image 3</summary>
-  
-  ```python
-  Original: A (12.3 bpp) | HIFIC: B (0.209 bpp). Ratio: 58.9
-  ```
-  
-</details>
-
-A             |  B
-:-------------------------:|:-------------------------:
-![guess](assets/hific/CLIC2020_19_RECON_0.565bpp.png) | ![guess](assets/originals/CLIC2020_19.png)
-
-<details>
-
-  <summary>Image 4</summary>
-  
-  ```python
-  Original: B (19.9 bpp) | HIFIC: A (0.565 bpp). Ratio: 35.2
-  ```
-  
-</details>
-
-The last two show interesting failure modes: small figures in the distance are almost entirely removed (top of the central rock in the penultimate image), and the required model bitrate increases significantly when the image is dominated by high-frequency components.
-
-### Authors
-
-* Grace Han
-* Justin Tan
-
-### Acknowledgements
-
-* The compression routines under `src/compression/` are derived from the [Tensorflow Compression library](https://github.com/tensorflow/compression).
-* The vectorized rANS implementation used for entropy coding is based on the [Craystack repository](https://github.com/j-towns/craystack).
-* The code under `src/loss/perceptual_similarity/` implementing the perceptual distortion loss is based on the [Perceptual Similarity repository](https://github.com/richzhang/PerceptualSimilarity).
-
-### Contributing
-
-All content in this repository is licensed under the Apache-2.0 license. Please open an issue if you encounter unexpected behaviour, or have corrections/suggestions to contribute.
-
-## Citation
-
-This is a PyTorch port of the original implementation. Please cite the [original paper](https://arxiv.org/abs/2006.09965) if you use their work.
-
-```bash
-@article{mentzer2020high,
-  title={High-Fidelity Generative Image Compression},
-  author={Mentzer, Fabian and Toderici, George and Tschannen, Michael and Agustsson, Eirikur},
-  journal={arXiv preprint arXiv:2006.09965},
-  year={2020}
-}
-```
+* Executing the rANS coder is slow and represents a performance bottleneck. Passing the `--vectorize` flag is much faster, but incurs a constant-bit overhead as the elements of the vectorized message must be initialized to some value, which introduces redundancy into the compressed message. The batch size needs to be quite large to make this overhead negligible. A fix is in the pipeline.
