@@ -4,7 +4,7 @@ Pytorch implementation of Baseline Video Compression Network using Variational A
 Each branch consists of implementation for different variation of the network namely [__baseline__](https://github.com/AnandK27/HyCoVC/tree/baseline), [__context__](https://github.com/AnandK27/HyCoVC/tree/context), [__PWC__](https://github.com/AnandK27/HyCoVC/tree/PWC) and [__HyCoVC__](https://github.com/AnandK27/HyCoVC/tree/HyCoVC)
 
 ## Architecture
-<img title = 'baseline-architecture' src='baseline.png' alt='baseline-architecture' />
+<img title = 'baseline-architecture' src='baseline.png' alt='baseline-architecture'  style="background-color:#ffffff" />
 
 # Usage
 
