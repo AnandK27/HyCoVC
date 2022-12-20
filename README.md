@@ -3,6 +3,9 @@
 Pytorch implementation of Contextual Video Compression (Context-VC) Network using Variational Auto Encoder (VAE) and Generative Adversarial Networks (GANs).
 Each branch consists of implementation for different variation of the network namely [__baseline__](https://github.com/AnandK27/HyCoVC/tree/baseline), [__context__](https://github.com/AnandK27/HyCoVC/tree/context), [__PWC__](https://github.com/AnandK27/HyCoVC/tree/PWC) and [__HyCoVC__](https://github.com/AnandK27/HyCoVC/tree/HyCoVC)
 
+## Architecture
+<img title = 'context-architecture' src='context.jpg' alt='context-architecture' />
+
 # Usage
 
 ## Training
