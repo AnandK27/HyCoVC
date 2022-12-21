@@ -30,7 +30,7 @@ Institut für Informationsverarbeitung) and the certificate is found [here](http
 
 ## Training
 
-* Download a large (> 100,000) dataset of diverse color images. We found that using 1-2 training divisions of the [OpenImages](https://storage.googleapis.com/openimages/web/index.html) dataset was able to produce satisfactory results on arbitrary images. [Fabian Mentzer's L3C Repo](https://github.com/fab-jul/L3C-PyTorch/) provides utility functions for downloading and preprocessing OpenImages (the trained models did not use this exact split). Add the dataset path under the `DatasetPaths` class in `default_config.py`. Check default config/command line arguments:
+* Download a large (> 100,000 frames) dataset of video frames. We found that using [Vimeo90K Dataset](http://toflow.csail.mit.edu/) was able to produce satisfactory results on arbitrary frames. Add the dataset path under the `DatasetPaths` class in `default_config.py`. Check default config/command line arguments:
 
 ```bash
 vim default_config.py
