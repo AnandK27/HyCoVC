@@ -3,8 +3,7 @@
 Pytorch implementation of Hyperprior Contextual Video Compression Network using Variational Auto Encoder (VAE) and Generative Adversarial Networks (GANs).<br>
 Each branch consists of implementation for different variation of the network namely [__baseline__](https://github.com/AnandK27/HyCoVC/tree/baseline), [__context__](https://github.com/AnandK27/HyCoVC/tree/context), [__PWC__](https://github.com/AnandK27/HyCoVC/tree/PWC) and [__HyCoVC__](https://github.com/AnandK27/HyCoVC/tree/HyCoVC).<br>
 You can find a detailed report [here](https://github.com/AnandK27/HyCoVC/tree/HyCoVC/Report.pdf).<br>
-The internship was funded by the [DAAD-WISE Scholarship](https://www2.daad.de/deutschland/stipendium/datenbank/en/21148-scholarship-database/?detail=50015295) under the [Institut für Informationsverarbeitung, Leibniz University Hannover](
-Institut für Informationsverarbeitung) and the certificate is found [here](https://github.com/AnandK27/HyCoVC/tree/HyCoVC/certification.pdf)
+The internship was funded by the [DAAD-WISE Scholarship](https://www2.daad.de/deutschland/stipendium/datenbank/en/21148-scholarship-database/?detail=50015295) under the [Institut für Informationsverarbeitung, Leibniz University Hannover](https://www.tnt.uni-hannover.de/en/)) and the certificate is found [here](https://github.com/AnandK27/HyCoVC/tree/HyCoVC/certification.pdf)
 
 ## Results
 
