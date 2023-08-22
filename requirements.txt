@@ -8,7 +8,7 @@ decorator==4.4.2
 future==0.18.2
 google-auth==1.20.1
 google-auth-oauthlib==0.4.1
-grpcio==1.31.0
+grpcio==1.53.0
 idna==2.10
 imageio==2.9.0
 importlib-metadata==1.7.0
@@ -19,7 +19,7 @@ networkx==2.4
 numpy==1.19.1
 oauthlib==3.1.0
 Pillow==9.0.1
-protobuf==3.12.4
+protobuf==3.18.3
 pyasn1==0.4.8
 pyasn1-modules==0.2.8
 pyparsing==2.4.7
@@ -37,6 +37,6 @@ tifffile==2020.7.24
 torch==1.13.1
 torchvision==0.7.0
 tqdm==4.48.2
-urllib3==1.25.10
+urllib3==1.26.5
 Werkzeug==2.2.3
 zipp==3.1.0
